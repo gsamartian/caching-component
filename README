@@ -12,7 +12,5 @@ It also adds a few custom features as  below which are not available by default 
 4.Invalidate all or specific keys from a cache
 
 
-It uses the 'caching-component' library as available in, https://github.com/gsamartian/caching-component
-
 
     
