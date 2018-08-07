@@ -1,0 +1,3 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=com.demo.caching.config.AppConfig,com.demo.caching.config.RedisCacheConfig,com.demo.caching.task.CacheScheduledTask
+
+
