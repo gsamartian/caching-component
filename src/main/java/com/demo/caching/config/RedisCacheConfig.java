@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CachingConfigurer;
 import org.springframework.cache.annotation.EnableCaching;
@@ -19,6 +20,7 @@ import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.core.RedisTemplate;
 
 @Configuration
+@ConditionalOnProperty(value = "spring.cache.type", havingValue = "redis")
 @EnableCaching
 public class RedisCacheConfig implements CachingConfigurer {
 	private final Logger LOG = LoggerFactory.getLogger(getClass());
@@ -31,37 +33,24 @@ public class RedisCacheConfig implements CachingConfigurer {
 
 	@Bean
 	public CacheManager cacheManager() {
+		LOG.debug("Entering...");
 		RedisCacheManager redisCacheManager = new RedisCacheManager(redisTemplate);
 		redisCacheManager.setDefaultExpiration(5 * 60);
 		List<CacheConfig> cacheConfigList = appConfig.getCacheConfig();
-		if (null != cacheConfigList && cacheConfigList.size()>0) {
+		if (null != cacheConfigList && cacheConfigList.size() > 0) {
 			redisCacheManager.setExpires(getCacheExpirySecondsMap(cacheConfigList));
-			setExpiryTimeList(cacheConfigList);
 		}
+		LOG.debug("Leaving.");
 		return redisCacheManager;
 	}
 
-	private void setExpiryTimeList(List<CacheConfig> cacheConfigList) {
-		Map<String, String> cacheConfigMap = cacheConfigList.stream().filter(
-				cacheConfig -> cacheConfig.getExpiryTime() != null && cacheConfig.getExpiryTime().length() > 0)
-				.collect(Collectors.toMap(x -> x.getName(), x -> x.getExpiryTime()));
-
-		cacheConfigMap.forEach((k, v) -> LOG.info((k + ":" + v)));
-		
-	}
-
 	private Map<String, Long> getCacheExpirySecondsMap(List<CacheConfig> cacheConfigList) {
-		Map<String, Long> cacheConfigMap = cacheConfigList.stream().filter(
-				cacheConfig -> cacheConfig.getExpirySeconds() != null && cacheConfig.getExpirySeconds().length() > 0)
-				.collect(Collectors.toMap(x -> x.getName(), x -> toLong(x.getExpirySeconds())));
-
-		cacheConfigMap.forEach((k, v) -> LOG.info((k + ":" + v)));
+		LOG.debug("Entering...");
+		Map<String, Long> cacheConfigMap = cacheConfigList.stream()
+				.filter(cacheConfig -> cacheConfig.getExpirySeconds() != null && cacheConfig.getExpirySeconds() != 0)
+				.collect(Collectors.toMap(x -> x.getName(), x -> x.getExpirySeconds()));
+		LOG.debug("Leaving.");
 		return cacheConfigMap;
-
-	}
-
-	public Long toLong(String value) {
-		return Long.parseLong(value);
 	}
 
 	@Override
@@ -76,6 +65,6 @@ public class RedisCacheConfig implements CachingConfigurer {
 
 	@Override
 	public CacheErrorHandler errorHandler() {
-		return null;
+		return new RedisCacheError();
 	}
 }

@@ -7,8 +7,8 @@ import org.springframework.cache.CacheManager;
 public class CacheClearTask implements Runnable {
 	private final Logger LOG = LoggerFactory.getLogger(getClass());
 
-	CacheManager mgr;
-	String cacheName;
+	private CacheManager mgr;
+	private String cacheName;
 	
 	public CacheClearTask(CacheManager mgr,String cacheName){
 		this.mgr=mgr;

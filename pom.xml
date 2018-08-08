@@ -34,6 +34,6 @@
 			<optional>true</optional>
 		</dependency>
 	</dependencies>
-	<version>1.0.0-SNAPSHOT</version>
+	<version>1.0.0-RELEASE</version>
 	<groupId>com.demo</groupId>
 </project>

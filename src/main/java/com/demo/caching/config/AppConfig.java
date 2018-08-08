@@ -2,10 +2,12 @@ package com.demo.caching.config;
 
 import java.util.List;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
+@ConditionalOnProperty(value = "spring.cache.type", havingValue = "redis")
 @ConfigurationProperties(prefix = "app")
 public class AppConfig {
 
@@ -24,6 +26,4 @@ public class AppConfig {
 		return "AppConfig [cacheConfig=" + cacheConfig + "]";
 	}
 
-
-	
 }
