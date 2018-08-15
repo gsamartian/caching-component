@@ -1,5 +1,10 @@
 package com.demo.caching.config;
 
+import org.springframework.cloud.context.config.annotation.RefreshScope;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+@RefreshScope
 public class CacheConfig {
 
 	public String getName() {
@@ -23,6 +28,10 @@ public class CacheConfig {
 		this.expirySeconds = expirySeconds;
 	}
 
+	String name;
+	Long expirySeconds;
+	String expiryTime;
+
 	public String getExpiryTime() {
 		return expiryTime;
 	}
@@ -30,9 +39,5 @@ public class CacheConfig {
 	public void setExpiryTime(String expiryTime) {
 		this.expiryTime = expiryTime;
 	}
-
-	String name;
-	Long expirySeconds;
-	String expiryTime;
 
 }
