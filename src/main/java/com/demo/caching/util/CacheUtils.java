@@ -24,8 +24,6 @@ import com.demo.caching.config.CacheConfig;
 public class CacheUtils {
 
 	private final Logger LOG = LoggerFactory.getLogger(getClass());
-	
-
 
 	@Value("${refresh.endpoint}")
 	String refreshEndpoint;
@@ -47,10 +45,10 @@ public class CacheUtils {
 
 		LOG.info("Updated Spring RedisCacheManager to have the  values updated in Configuration for new Keys");
 
-		//Required to Refresh CacheManagerBean which has RefreshScope
-		//Cache cache=cacheMgr.getCache("test");
+		// Required to Refresh CacheManagerBean which has RefreshScope
+		// Cache cache=cacheMgr.getCache("test");
 		refreshCacheManager();
-		
+
 		List<CacheConfig> cacheConfigList = appConfig.getCacheConfig();
 		if (null != cacheConfigList && cacheConfigList.size() > 0) {
 			LOG.debug("CacheConfigList is:");
@@ -73,65 +71,64 @@ public class CacheUtils {
 	public void invokeRefreshOnService() {
 		LOG.debug("Entering...");
 		LOG.debug("Configured refreshEndpoint is: {}", refreshEndpoint);
-		
+
 		for (String node : StringUtils.commaDelimitedListToStringArray(refreshEndpoint)) {
 			LOG.debug("Next Node is:" + node);
 			RestTemplate restTemplate = new RestTemplate();
 			HttpEntity<String> request = new HttpEntity<>(new String("refresh"));
-			String response = restTemplate.postForObject(node +"/refresh", request, String.class);
+			String response = restTemplate.postForObject(node + "/refresh", request, String.class);
 			LOG.info("Received Response:" + response);
 		}
-		
+
 		LOG.debug("Leaving.");
 	}
-	
+
 	public void refreshCacheManager() {
 		LOG.debug("Entering...");
 		LOG.debug("Configured refreshEndpoint is: {}", refreshEndpoint);
-		
+
 		for (String node : StringUtils.commaDelimitedListToStringArray(refreshEndpoint)) {
 			LOG.debug("Next Node is:" + node);
 			RestTemplate restTemplate = new RestTemplate();
 			HttpEntity<String> request = new HttpEntity<>(new String("refreshCacheManager"));
-			String response = restTemplate.postForObject(node +"/cache/cachemanager/refresh", request, String.class);
+			String response = restTemplate.postForObject(node + "/cache/cachemanager/refresh", request, String.class);
 			LOG.info("Received Response:" + response);
 		}
-		
+
 		LOG.debug("Leaving.");
 	}
 
 	public void updateExpiryExistingKeys(String cacheName, long seconds) {
-		LOG.debug("Entering...");
+		LOG.info("Entering...");
 		LOG.info("Received cacheName:{} , seconds:{}", cacheName, seconds);
 
-		LOG.debug("Fetching all keys of cache:{}", cacheName);
+		LOG.info("Fetching all keys of cache:{}", cacheName);
 		// Fetch All Keys with pattern cachename*
 		RedisConnection redisConnection = redisTemplate.getConnectionFactory().getConnection();
 		String cacheNamePattern = cacheName + "*";
 		Set<byte[]> keySet = redisConnection.keys(cacheNamePattern.getBytes());
 		redisConnection.close();
 
-		LOG.debug("Updating Expiration Time of All Existing Keys of  cache:{}...", cacheName);
+		LOG.info("Updating Expiration Time of All Existing Keys of  cache:{}...", cacheName);
 		// Update Expiration Time for Keys returned based on pattern cachename*
 		redisTemplate.executePipelined(new RedisCallback<Object>() {
+
 			@Override
 			public Object doInRedis(RedisConnection connection) throws DataAccessException {
-				Consumer<byte[]> action = new Consumer<byte[]>() {
-					@Override
-					public void accept(byte[] t) {
-						connection.multi();
-						connection.expire(t, seconds);
-					}
-				};
-				keySet.forEach(action);
-				connection.exec();
+				//connection.multi();
+				keySet.forEach((temp) -> {
+					
+					LOG.info("next key To Expire is: {}", temp);
+					connection.expire(temp, seconds);
+				});
+				//connection.exec();
 				return null;
 			}
 		});
 		LOG.info("Updated Expiration Time for Existing keys of cache:{}, To : new Time: {}", cacheName, seconds);
-		LOG.debug("Leaving.");
+		LOG.info("Leaving.");
 	}
-	
+
 	public void invalidCacheKeys(String cacheName, List<String> cacheKeyList) {
 		LOG.debug("Entering...");
 		LOG.info("Received cacheName:{} , cacheKeyList:{}", cacheName, cacheKeyList);
@@ -140,19 +137,19 @@ public class CacheUtils {
 
 			@Override
 			public Object doInRedis(RedisConnection connection) throws DataAccessException {
-				
-					cacheKeyList.forEach((temp) -> {
+
+				cacheKeyList.forEach((temp) -> {
 					connection.multi();
-					LOG.info("next key is: {}",temp);
+					LOG.info("next key is: {}", temp);
 					connection.del(temp.getBytes());
 				});
 				connection.exec();
-				
+
 				return null;
 			}
-		
+
 		});
-		LOG.info("Invalidated Keys:{} from cache : {}",cacheKeyList,cacheName);
+		LOG.info("Invalidated Keys:{} from cache : {}", cacheKeyList, cacheName);
 		LOG.debug("Leaving.");
 	}
 }
