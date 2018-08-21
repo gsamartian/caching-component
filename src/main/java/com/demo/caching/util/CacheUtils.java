@@ -8,8 +8,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.data.redis.core.RedisCallback;
@@ -27,8 +25,7 @@ public class CacheUtils {
 
 	private final Logger LOG = LoggerFactory.getLogger(getClass());
 	
-	@Autowired
-	CacheManager cacheMgr;
+
 
 	@Value("${refresh.endpoint}")
 	String refreshEndpoint;
@@ -51,8 +48,8 @@ public class CacheUtils {
 		LOG.info("Updated Spring RedisCacheManager to have the  values updated in Configuration for new Keys");
 
 		//Required to Refresh CacheManagerBean which has RefreshScope
-		Cache cache=cacheMgr.getCache("test");
-		
+		//Cache cache=cacheMgr.getCache("test");
+		refreshCacheManager();
 		
 		List<CacheConfig> cacheConfigList = appConfig.getCacheConfig();
 		if (null != cacheConfigList && cacheConfigList.size() > 0) {
@@ -75,13 +72,28 @@ public class CacheUtils {
 
 	public void invokeRefreshOnService() {
 		LOG.debug("Entering...");
-		LOG.info("Configured refreshEndpoint is: {}", refreshEndpoint);
+		LOG.debug("Configured refreshEndpoint is: {}", refreshEndpoint);
 		
 		for (String node : StringUtils.commaDelimitedListToStringArray(refreshEndpoint)) {
 			LOG.debug("Next Node is:" + node);
 			RestTemplate restTemplate = new RestTemplate();
-			HttpEntity<String> request = new HttpEntity<>(new String("test"));
-			String response = restTemplate.postForObject(node, request, String.class);
+			HttpEntity<String> request = new HttpEntity<>(new String("refresh"));
+			String response = restTemplate.postForObject(node +"/refresh", request, String.class);
+			LOG.info("Received Response:" + response);
+		}
+		
+		LOG.debug("Leaving.");
+	}
+	
+	public void refreshCacheManager() {
+		LOG.debug("Entering...");
+		LOG.debug("Configured refreshEndpoint is: {}", refreshEndpoint);
+		
+		for (String node : StringUtils.commaDelimitedListToStringArray(refreshEndpoint)) {
+			LOG.debug("Next Node is:" + node);
+			RestTemplate restTemplate = new RestTemplate();
+			HttpEntity<String> request = new HttpEntity<>(new String("refreshCacheManager"));
+			String response = restTemplate.postForObject(node +"/cache/cachemanager/refresh", request, String.class);
 			LOG.info("Received Response:" + response);
 		}
 		
@@ -90,7 +102,7 @@ public class CacheUtils {
 
 	public void updateExpiryExistingKeys(String cacheName, long seconds) {
 		LOG.debug("Entering...");
-		LOG.debug("Received cacheName:{} , seconds:{}", cacheName, seconds);
+		LOG.info("Received cacheName:{} , seconds:{}", cacheName, seconds);
 
 		LOG.debug("Fetching all keys of cache:{}", cacheName);
 		// Fetch All Keys with pattern cachename*
@@ -107,14 +119,40 @@ public class CacheUtils {
 				Consumer<byte[]> action = new Consumer<byte[]>() {
 					@Override
 					public void accept(byte[] t) {
+						connection.multi();
 						connection.expire(t, seconds);
 					}
 				};
 				keySet.forEach(action);
+				connection.exec();
 				return null;
 			}
 		});
 		LOG.info("Updated Expiration Time for Existing keys of cache:{}, To : new Time: {}", cacheName, seconds);
+		LOG.debug("Leaving.");
+	}
+	
+	public void invalidCacheKeys(String cacheName, List<String> cacheKeyList) {
+		LOG.debug("Entering...");
+		LOG.info("Received cacheName:{} , cacheKeyList:{}", cacheName, cacheKeyList);
+
+		redisTemplate.executePipelined(new RedisCallback<Object>() {
+
+			@Override
+			public Object doInRedis(RedisConnection connection) throws DataAccessException {
+				
+					cacheKeyList.forEach((temp) -> {
+					connection.multi();
+					LOG.info("next key is: {}",temp);
+					connection.del(temp.getBytes());
+				});
+				connection.exec();
+				
+				return null;
+			}
+		
+		});
+		LOG.info("Invalidated Keys:{} from cache : {}",cacheKeyList,cacheName);
 		LOG.debug("Leaving.");
 	}
 }

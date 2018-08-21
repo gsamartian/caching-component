@@ -47,6 +47,9 @@ public class RedisCacheConfig implements CachingConfigurer {
 	@Value("${spring.redis.sentinel.nodes}")
 	String redisSentinelNodes;
 
+	@Value("${spring.redis.password}")
+	String redisPassword;
+
 	@Bean
 	@RefreshScope
 	public List<RedisNode> createSentinels() {
@@ -70,7 +73,9 @@ public class RedisCacheConfig implements CachingConfigurer {
 		List<RedisNode> nodes = createSentinels();
 		RedisSentinelConfiguration sentinelConfig = new RedisSentinelConfiguration().master(redisSentinelMaster);
 		sentinelConfig.setSentinels(nodes);
-		return new JedisConnectionFactory(sentinelConfig);
+		JedisConnectionFactory jedisConnFactory=new JedisConnectionFactory(sentinelConfig);
+		//jedisConnFactory.setPassword(redisPassword);
+		return jedisConnFactory;
 	}
 
 	@Bean
