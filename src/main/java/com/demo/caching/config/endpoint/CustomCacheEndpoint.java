@@ -18,7 +18,7 @@ public class CustomCacheEndpoint extends EndpointMvcAdapter {
 
 	}
 
-	@RequestMapping(value = "/expiration", method = RequestMethod.POST)
+	@RequestMapping(value = "/expiration/refresh", method = RequestMethod.POST)
 	@ResponseBody
 	public String doRefresh() {
 		return this.delegate.invoke();
