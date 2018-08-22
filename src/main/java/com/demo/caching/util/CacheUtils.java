@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.CacheManager;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.data.redis.core.RedisCallback;
@@ -36,6 +37,9 @@ public class CacheUtils {
 
 	@Autowired
 	AppConfig appConfig;
+	
+	@Autowired
+	CacheManager cacheMgr;
 
 	@SuppressWarnings("unused")
 	public void findAndSetExpirationTimeForCaches() {
@@ -49,7 +53,6 @@ public class CacheUtils {
 		LOG.info("Updated Spring RedisCacheManager to have the  values updated in Configuration for new Keys");
 
 		// Required to Refresh CacheManagerBean which has RefreshScope
-		// Cache cache=cacheMgr.getCache("test");
 		refreshCacheManager();
 
 		List<CacheConfig> cacheConfigList = appConfig.getCacheConfig();
@@ -106,14 +109,16 @@ public class CacheUtils {
 		LOG.info("Received cacheName:{} , seconds:{}", cacheName, seconds);
 
 		LOG.debug("Fetching all keys of cache:{}", cacheName);
+		
 		// Fetch All Keys with pattern cachename*
 		RedisConnection redisConnection = redisTemplate.getConnectionFactory().getConnection();
 		String cacheNamePattern = cacheName + "*";
-		// Set<byte[]> keySet = redisConnection.keys(cacheNamePattern.getBytes());
+
 		Set<String> keySet = redisTemplate.keys(cacheNamePattern);
 		redisConnection.close();
 
 		LOG.debug("Updating Expiration Time of All Existing Keys of  cache:{}...", cacheName);
+		
 		// Update Expiration Time for Keys returned based on pattern cachename*
 		redisTemplate.executePipelined(new SessionCallback<Object>() {
 
@@ -154,6 +159,14 @@ public class CacheUtils {
 
 		});
 		LOG.info("Invalidated Keys:{} from cache : {}", cacheKeyList, cacheName);
+		LOG.debug("Leaving.");
+
+	}
+	
+	public void clearCache(String cacheName) {
+		LOG.debug("Entering");
+		cacheMgr.getCache(cacheName).clear();
+		LOG.info("Cleared/Invalidated Cache: {}",cacheName);
 		LOG.debug("Leaving.");
 	}
 }

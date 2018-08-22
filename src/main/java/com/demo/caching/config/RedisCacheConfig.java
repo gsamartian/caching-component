@@ -19,14 +19,18 @@ import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.RedisNode;
 import org.springframework.data.redis.connection.RedisSentinelConfiguration;
 import org.springframework.data.redis.connection.jedis.JedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
+import org.springframework.scripting.support.ResourceScriptSource;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
@@ -149,6 +153,14 @@ public class RedisCacheConfig implements CachingConfigurer {
 	@Override
 	public CacheErrorHandler errorHandler() {
 		return new RedisCacheError();
+	}
+	
+	@Bean
+	public RedisScript<Boolean> script() {
+	  DefaultRedisScript<Boolean> redisScript = new DefaultRedisScript<Boolean>();
+	  redisScript.setScriptSource(new ResourceScriptSource(new ClassPathResource("META-INF/scripts/checkandset.lua")));
+	  redisScript.setResultType(Boolean.class);
+	  return redisScript;
 	}
 
 }
