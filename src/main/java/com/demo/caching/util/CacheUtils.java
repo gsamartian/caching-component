@@ -2,6 +2,7 @@ package com.demo.caching.util;
 
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import org.slf4j.Logger;
@@ -11,7 +12,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.data.redis.core.RedisCallback;
+import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.http.HttpEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -99,34 +102,35 @@ public class CacheUtils {
 	}
 
 	public void updateExpiryExistingKeys(String cacheName, long seconds) {
-		LOG.info("Entering...");
+		LOG.debug("Entering...");
 		LOG.info("Received cacheName:{} , seconds:{}", cacheName, seconds);
 
-		LOG.info("Fetching all keys of cache:{}", cacheName);
+		LOG.debug("Fetching all keys of cache:{}", cacheName);
 		// Fetch All Keys with pattern cachename*
 		RedisConnection redisConnection = redisTemplate.getConnectionFactory().getConnection();
 		String cacheNamePattern = cacheName + "*";
-		Set<byte[]> keySet = redisConnection.keys(cacheNamePattern.getBytes());
+		// Set<byte[]> keySet = redisConnection.keys(cacheNamePattern.getBytes());
+		Set<String> keySet = redisTemplate.keys(cacheNamePattern);
 		redisConnection.close();
 
-		LOG.info("Updating Expiration Time of All Existing Keys of  cache:{}...", cacheName);
+		LOG.debug("Updating Expiration Time of All Existing Keys of  cache:{}...", cacheName);
 		// Update Expiration Time for Keys returned based on pattern cachename*
-		redisTemplate.executePipelined(new RedisCallback<Object>() {
+		redisTemplate.executePipelined(new SessionCallback<Object>() {
 
+			@SuppressWarnings("unchecked")
 			@Override
-			public Object doInRedis(RedisConnection connection) throws DataAccessException {
-				//connection.multi();
+			public <K, V> Object execute(RedisOperations<K, V> operations) throws DataAccessException {
 				keySet.forEach((temp) -> {
-					
+					operations.multi();
 					LOG.info("next key To Expire is: {}", temp);
-					connection.expire(temp, seconds);
+					operations.expire((K) temp, seconds, TimeUnit.SECONDS);
 				});
-				//connection.exec();
+				operations.exec();
 				return null;
 			}
 		});
 		LOG.info("Updated Expiration Time for Existing keys of cache:{}, To : new Time: {}", cacheName, seconds);
-		LOG.info("Leaving.");
+		LOG.debug("Leaving.");
 	}
 
 	public void invalidCacheKeys(String cacheName, List<String> cacheKeyList) {
