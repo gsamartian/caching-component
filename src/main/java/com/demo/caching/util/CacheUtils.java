@@ -1,8 +1,6 @@
 package com.demo.caching.util;
 
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import org.slf4j.Logger;
@@ -12,10 +10,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.CacheManager;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.connection.RedisConnection;
+import org.springframework.data.redis.connection.ReturnType;
 import org.springframework.data.redis.core.RedisCallback;
-import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.SessionCallback;
+import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.http.HttpEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -40,6 +38,9 @@ public class CacheUtils {
 	
 	@Autowired
 	CacheManager cacheMgr;
+	
+	private static final byte[] SET_EXPIRATION__KEYS_BY_PATTERN_LUA = new StringRedisSerializer().serialize(
+			"local keys = redis.call('KEYS', ARGV[1]); local keysCount = table.getn(keys); if(keysCount > 0) then for _, key in ipairs(keys) do redis.call('expire', key,ARGV[2]); end; end; return keysCount;");
 
 	@SuppressWarnings("unused")
 	public void findAndSetExpirationTimeForCaches() {
@@ -65,7 +66,7 @@ public class CacheUtils {
 					if (null != cacheConfig) {
 						LOG.debug("Next:{}", cacheConfig.toString());
 						// Update Existing Keys for Updated Caches in Configuration
-						updateExpiryExistingKeys(cacheConfig.getName(), cacheConfig.getExpirySeconds());
+						updateExpiryExistingKeys(cacheConfig.getName(), String.valueOf(cacheConfig.getExpirySeconds()));
 					}
 				}
 			};
@@ -104,7 +105,7 @@ public class CacheUtils {
 		LOG.debug("Leaving.");
 	}
 
-	public void updateExpiryExistingKeys(String cacheName, long seconds) {
+	/*public void updateExpiryExistingKeys(String cacheName, long seconds) {
 		LOG.debug("Entering...");
 		LOG.info("Received cacheName:{} , seconds:{}", cacheName, seconds);
 
@@ -136,8 +137,21 @@ public class CacheUtils {
 		});
 		LOG.info("Updated Expiration Time for Existing keys of cache:{}, To : new Time: {}", cacheName, seconds);
 		LOG.debug("Leaving.");
+	}*/
+	public void updateExpiryExistingKeys(String cacheName, String seconds) {
+		LOG.debug("Entering...");
+		LOG.info("Received cacheName:{} , seconds:{}", cacheName, seconds);
+		
+		byte[] cacheNameLockBytes=(cacheName +"~lock").getBytes();
+		RedisConnection redisConnection = redisTemplate.getConnectionFactory().getConnection();
+		redisConnection.set(cacheNameLockBytes, cacheNameLockBytes);
+		redisConnection.eval(SET_EXPIRATION__KEYS_BY_PATTERN_LUA, ReturnType.INTEGER, 0, (cacheName + ":*").getBytes(),seconds.getBytes());
+		redisConnection.del(cacheNameLockBytes, cacheNameLockBytes);
+		redisConnection.close();
+		LOG.info("Updated Expiration Time for Existing keys of cache:{}, To : new Time: {}", cacheName, seconds);
+		LOG.debug("Leaving.");
 	}
-
+	
 	public void invalidCacheKeys(String cacheName, List<String> cacheKeyList) {
 		LOG.debug("Entering...");
 		LOG.info("Received cacheName:{} , cacheKeyList:{}", cacheName, cacheKeyList);
