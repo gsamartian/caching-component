@@ -1,2 +1,2 @@
-org.springframework.boot.autoconfigure.EnableAutoConfiguration=com.demo.caching.config.AppConfig,com.demo.caching.config.RedisCacheConfig,com.demo.caching.util.CacheUtils,com.demo.caching.config.endpoint.CacheEndpoint,com.demo.caching.config.endpoint.CustomCacheEndpoint
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=com.demo.caching.config.AppConfig,com.demo.caching.config.RedisCacheConfig,com.demo.caching.util.CacheUtils,com.demo.caching.config.endpoint.CacheEndpoint,com.demo.caching.config.endpoint.CustomCacheEndpoint,com.demo.caching.util.CloudUtils
 

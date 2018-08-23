@@ -53,22 +53,22 @@ public class CustomCacheEndpoint extends EndpointMvcAdapter {
 		return "Success";
 	}
 	
-	@RequestMapping(value = "/invalidatekeys/{cacheName}", method = RequestMethod.DELETE)
+	@RequestMapping(value = "/{cacheName}", method = RequestMethod.POST)
 	@ResponseBody
 	public String invalidateCacheKeys(@PathVariable("cacheName") String cacheName,@RequestBody List<String> cacheKeyList) {
 		LOG.debug("Entering invalidateCacheKeys..");
-		LOG.debug("Received params: cacheName: {}, cacheKeyList:{}",cacheName,cacheKeyList);
+		LOG.info("Received params: cacheName: {}, cacheKeyList:{}",cacheName,cacheKeyList);
 		cacheUtils.invalidCacheKeys(cacheName, cacheKeyList);
 		LOG.debug("Leaving invalidateCacheKeys..");
 		return "Success";
 	}
 
 	
-	@RequestMapping(value = "/clear/{cacheName}", method = RequestMethod.DELETE)
+	@RequestMapping(value = "/{cacheName}", method = RequestMethod.DELETE)
 	@ResponseBody
 	public String clearCache(@PathVariable("cacheName") String cacheName) {
 		LOG.debug("Entering clearCache..");
-		LOG.debug("Received params: cacheName: {}",cacheName);
+		LOG.info("Received params: cacheName: {}",cacheName);
 		cacheUtils.clearCache(cacheName);
 		LOG.debug("Leaving clearCache..");
 		return "Success";
