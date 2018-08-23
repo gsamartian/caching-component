@@ -13,7 +13,6 @@ import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.data.redis.connection.ReturnType;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.http.HttpEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -21,6 +20,7 @@ import org.springframework.web.client.RestTemplate;
 
 import com.demo.caching.config.AppConfig;
 import com.demo.caching.config.CacheConfig;
+import com.demo.caching.config.CacheConstants;
 
 @Component
 public class CacheUtils {
@@ -39,8 +39,11 @@ public class CacheUtils {
 	@Autowired
 	CacheManager cacheMgr;
 	
-	private static final byte[] SET_EXPIRATION__KEYS_BY_PATTERN_LUA = new StringRedisSerializer().serialize(
-			"local keys = redis.call('KEYS', ARGV[1]); local keysCount = table.getn(keys); if(keysCount > 0) then for _, key in ipairs(keys) do redis.call('expire', key,ARGV[2]); end; end; return keysCount;");
+	@Autowired
+	CloudUtils cloudUtils;
+
+	
+	
 
 	@SuppressWarnings("unused")
 	public void findAndSetExpirationTimeForCaches() {
@@ -78,12 +81,29 @@ public class CacheUtils {
 	public void invokeRefreshOnService() {
 		LOG.debug("Entering...");
 		LOG.debug("Configured refreshEndpoint is: {}", refreshEndpoint);
+		
+		/*List<ServiceInstance> serviceInstances=cloudUtils.getServiceInstances();
+		String token=cloudUtils.getTokenForEnvironment();
+		
+		serviceInstances.forEach((obj) -> {
+				LOG.info("Next URL is:{}",obj.getUri());
+				HttpHeaders headers = new HttpHeaders();
+				headers.set("Authorization", token);
+				RestTemplate restTemplate = new RestTemplate();
+				HttpEntity<String> request = new HttpEntity<>(new String("refresh"),headers);
+				ResponseEntity<String> entityResponse=restTemplate.exchange(obj.getUri() + "/refresh", HttpMethod.POST, request, String.class);
+				String response=entityResponse.getBody();
+				//String response = restTemplate.postForObject(obj.getUri() + "/refresh", request, String.class);
+				LOG.info("Received Response:" + response);
+		});*/
+		
+		
 
 		for (String node : StringUtils.commaDelimitedListToStringArray(refreshEndpoint)) {
 			LOG.debug("Next Node is:" + node);
 			RestTemplate restTemplate = new RestTemplate();
 			HttpEntity<String> request = new HttpEntity<>(new String("refresh"));
-			String response = restTemplate.postForObject(node + "/refresh", request, String.class);
+			String response = restTemplate.postForObject(node + CacheConstants.REFRESH_PATH, request, String.class);
 			LOG.info("Received Response:" + response);
 		}
 
@@ -94,58 +114,42 @@ public class CacheUtils {
 		LOG.debug("Entering...");
 		LOG.debug("Configured refreshEndpoint is: {}", refreshEndpoint);
 
+
+		/*List<ServiceInstance> serviceInstances=cloudUtils.getServiceInstances();
+		String token=cloudUtils.getTokenForEnvironment();
+		
+		serviceInstances.forEach((obj) -> {
+				LOG.info("Next URL is:{}",obj.getUri());
+				HttpHeaders headers = new HttpHeaders();
+				headers.set("Authorization", token);
+				RestTemplate restTemplate = new RestTemplate();
+				HttpEntity<String> request = new HttpEntity<>(new String("refreshCacheManager"),headers);
+				ResponseEntity<String> entityResponse=restTemplate.exchange(obj.getUri() + "/cache/cachemanager/refresh", HttpMethod.POST, request, String.class);
+				String response=entityResponse.getBody();
+				//String response = restTemplate.postForObject(obj.getUri() + CacheConstants.REFRESH_CACHEMANAGER_PATH, request, String.class);
+				LOG.info("Received Response:" + response);
+		});*/
+		
 		for (String node : StringUtils.commaDelimitedListToStringArray(refreshEndpoint)) {
 			LOG.debug("Next Node is:" + node);
 			RestTemplate restTemplate = new RestTemplate();
 			HttpEntity<String> request = new HttpEntity<>(new String("refreshCacheManager"));
-			String response = restTemplate.postForObject(node + "/cache/cachemanager/refresh", request, String.class);
+			String response = restTemplate.postForObject(node + CacheConstants.REFRESH_CACHEMANAGER_PATH, request, String.class);
 			LOG.info("Received Response:" + response);
 		}
 
 		LOG.debug("Leaving.");
 	}
 
-	/*public void updateExpiryExistingKeys(String cacheName, long seconds) {
-		LOG.debug("Entering...");
-		LOG.info("Received cacheName:{} , seconds:{}", cacheName, seconds);
 
-		LOG.debug("Fetching all keys of cache:{}", cacheName);
-		
-		// Fetch All Keys with pattern cachename*
-		RedisConnection redisConnection = redisTemplate.getConnectionFactory().getConnection();
-		String cacheNamePattern = cacheName + "*";
-
-		Set<String> keySet = redisTemplate.keys(cacheNamePattern);
-		redisConnection.close();
-
-		LOG.debug("Updating Expiration Time of All Existing Keys of  cache:{}...", cacheName);
-		
-		// Update Expiration Time for Keys returned based on pattern cachename*
-		redisTemplate.executePipelined(new SessionCallback<Object>() {
-
-			@SuppressWarnings("unchecked")
-			@Override
-			public <K, V> Object execute(RedisOperations<K, V> operations) throws DataAccessException {
-				keySet.forEach((temp) -> {
-					operations.multi();
-					LOG.info("next key To Expire is: {}", temp);
-					operations.expire((K) temp, seconds, TimeUnit.SECONDS);
-				});
-				operations.exec();
-				return null;
-			}
-		});
-		LOG.info("Updated Expiration Time for Existing keys of cache:{}, To : new Time: {}", cacheName, seconds);
-		LOG.debug("Leaving.");
-	}*/
 	public void updateExpiryExistingKeys(String cacheName, String seconds) {
 		LOG.debug("Entering...");
 		LOG.info("Received cacheName:{} , seconds:{}", cacheName, seconds);
 		
-		byte[] cacheNameLockBytes=(cacheName +"~lock").getBytes();
+		byte[] cacheNameLockBytes=(cacheName +CacheConstants.CACHE_LOCK).getBytes();
 		RedisConnection redisConnection = redisTemplate.getConnectionFactory().getConnection();
 		redisConnection.set(cacheNameLockBytes, cacheNameLockBytes);
-		redisConnection.eval(SET_EXPIRATION__KEYS_BY_PATTERN_LUA, ReturnType.INTEGER, 0, (cacheName + ":*").getBytes(),seconds.getBytes());
+		redisConnection.eval(CacheConstants.SET_EXPIRATION__KEYS_BY_PATTERN_LUA, ReturnType.INTEGER, 0, (cacheName + ":*").getBytes(),seconds.getBytes());
 		redisConnection.del(cacheNameLockBytes, cacheNameLockBytes);
 		redisConnection.close();
 		LOG.info("Updated Expiration Time for Existing keys of cache:{}, To : new Time: {}", cacheName, seconds);
